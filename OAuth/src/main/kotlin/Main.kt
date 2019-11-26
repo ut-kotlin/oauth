@@ -8,7 +8,7 @@ import java.util.*
 
 object Main {
     private const val tokenTTL: Long = 15;
-    private const val refreshTTL: Long = 5 * tokenTTL;
+    private const val refreshTTL: Long = 3 * tokenTTL;
 
     data class UserProfile(val userId: String, val displayName: String)
     data class User(val profile: UserProfile, val password: String) {
