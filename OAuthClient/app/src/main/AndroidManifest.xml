@@ -21,6 +21,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".ui.login.UserActivity">
+            <intent-filter>
+                <action android:name="com.inmotionsoftware.oauthclient.USER_DISPLAYNAME" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>

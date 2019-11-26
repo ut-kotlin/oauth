@@ -12,6 +12,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 
 import inmotionsoftware.com.oauthclient.R
+import inmotionsoftware.com.oauthclient.data.model.OAuthToken
+
+typealias LoginResult = Result<OAuthToken>
 
 class LoginViewModel(private val loginRepository: LoginRepository) : ViewModel() {
 
@@ -24,13 +27,8 @@ class LoginViewModel(private val loginRepository: LoginRepository) : ViewModel()
     suspend fun login(username: String, password: String) {
         viewModelScope.launch (
             context = viewModelScope.coroutineContext + Dispatchers.IO) {
-
             val rt = loginRepository.login(username, password)
-                .mapResult { loginRepository.getUserProfile(username) }
-                .map { LoggedInUserView(displayName = it.displayName) }
-
-            val res = if (rt is Result.Success) LoginResult(rt.data) else LoginResult(error=R.string.login_failed)
-            _loginResult.postValue( res )
+            _loginResult.postValue(rt)
         }
     }
 

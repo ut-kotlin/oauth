@@ -22,8 +22,8 @@ class LoginRepository(val dataSource: LoginDataSource) {
         dataSource.logout()
     }
 
-    suspend fun getUserProfile(username: String): Result<UserProfile> {
-        val result = dataSource.getUserProfile(username)
+    suspend fun getUserProfile(): Result<UserProfile> {
+        val result = dataSource.getUserProfile()
         this.userProfile = if (result is Result.Success) result.data else null
         return result
     }

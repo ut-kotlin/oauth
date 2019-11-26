@@ -47,14 +47,14 @@ class LoginDataSource() {
     private val port = 4567
     private val loginURL = URL("http://${host}:${port}/oauth/token")
     private val userURL = URL("http://${host}:${port}/user")
-    private var auth: OAuthToken? = null
+    public var auth: OAuthToken? = null
 
     private val client = OkHttpClient()
 
     val isLoggedIn: Boolean
         get() = auth != null
 
-    private suspend fun<T: Any> send(request: Request, type: Class<T>): Result<T> {
+    private suspend fun<T: Any> send(request: Request, type: Class<T>, reauth: Boolean = false): Result<T> {
         try {
             val response = client
                 .newCall(request)
@@ -66,37 +66,38 @@ class LoginDataSource() {
                     val obj = Gson().fromJson(body, type)
                     Result.Success(obj)
                 }
-                401 ->  Result.Error(RuntimeException("Unauthorized"))
-                500 ->  Result.Error(RuntimeException("Server Error"))
-                400 ->  Result.Error(RuntimeException("Client Error"))
+
+                401 -> {
+                    val auth = this.auth
+                    if (reauth && auth != null) {
+                        this.auth = null
+                        val res = login(auth.refreshToken)
+
+                        return when (res) {
+                            is Result.Success -> {
+                                val auth = res.data
+                                val req = request.newBuilder()
+                                    .header("Authorization", "${auth.tokenType} ${auth.accessToken}")
+                                    .build()
+                                send(req, type)
+                            }
+                            is Result.Error -> res
+                        }
+                    }
+                    Result.Error(RuntimeException("Unauthorized"))
+                }
+
+                500 -> Result.Error(RuntimeException("Server Error"))
+                400 -> Result.Error(RuntimeException("Client Error"))
                 else -> Result.Error(RuntimeException("HTTP Error: ${response.code}"))
             }
+
         } catch(t: Exception) {
             return Result.Error(t)
         }
     }
 
-    suspend fun getUserProfile(userId: String): Result<UserProfile> {
-        val auth = this.auth ?: return Result.Error(RuntimeException("Unauthorized"))
-
-        val request = Request.Builder()
-            .url("${userURL}/${userId}")
-            .get()
-            .addHeader("Authorization", "${auth.tokenType} ${auth.accessToken}")
-            .build()
-
-        return send(request, UserProfile::class.java)
-    }
-
-    suspend fun login(username: String, password: String): Result<OAuthToken> {
-        val body = FormBody.Builder()
-            .add("grant_type", "password")
-            .add("username", username)
-            .add("password", password)
-            .add("client_id", clientId)
-            .add("client_secret", clientSecret)
-            .build()
-
+    private suspend fun requestToken(body: FormBody): Result<OAuthToken>  {
         val request = Request.Builder()
             .url(loginURL)
             .post(body)
@@ -106,6 +107,37 @@ class LoginDataSource() {
         this.auth = if (result is Result.Success) result.data else null
         return result
     }
+
+    private suspend fun login(refreshToken: String): Result<OAuthToken> =
+        requestToken( FormBody.Builder()
+            .add("grant_type", "refresh_token")
+            .add("refresh_token", refreshToken)
+            .add("client_id", clientId)
+            .add("client_secret", clientSecret)
+            .build()
+        )
+
+    suspend fun getUserProfile(): Result<UserProfile> {
+        val auth = this.auth ?: return Result.Error(RuntimeException("Unauthorized"))
+
+        val request = Request.Builder()
+            .url("${userURL}")
+            .get()
+            .addHeader("Authorization", "${auth.tokenType} ${auth.accessToken}")
+            .build()
+
+        return send(request, UserProfile::class.java, true)
+    }
+
+    suspend fun login(username: String, password: String): Result<OAuthToken> =
+        requestToken(FormBody.Builder()
+            .add("grant_type", "password")
+            .add("username", username)
+            .add("password", password)
+            .add("client_id", clientId)
+            .add("client_secret", clientSecret)
+            .build()
+        )
 
     fun logout() {
         this.auth = null

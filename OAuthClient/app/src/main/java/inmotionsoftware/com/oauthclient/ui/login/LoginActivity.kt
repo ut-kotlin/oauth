@@ -1,9 +1,11 @@
 package inmotionsoftware.com.oauthclient.ui.login
 
 import android.app.Activity
+import android.content.Intent
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProviders
 import android.os.Bundle
+import android.os.Parcelable
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
 import android.text.Editable
@@ -14,14 +16,17 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.Toast
+import com.google.gson.Gson
 
 import inmotionsoftware.com.oauthclient.R
+import inmotionsoftware.com.oauthclient.data.Result
+import inmotionsoftware.com.oauthclient.data.model.OAuthToken
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.newSingleThreadContext
 
 class LoginActivity : AppCompatActivity() {
-    private val scope = CoroutineScope(newSingleThreadContext("name"))
+    private val scope = CoroutineScope(newSingleThreadContext("LoginScope"))
 
     private lateinit var loginViewModel: LoginViewModel
 
@@ -56,11 +61,10 @@ class LoginActivity : AppCompatActivity() {
             val loginResult = it ?: return@Observer
 
             loading.visibility = View.GONE
-            if (loginResult.error != null) {
-                showLoginFailed(loginResult.error)
-            }
-            if (loginResult.success != null) {
-                updateUiWithUser(loginResult.success)
+
+            when (loginResult) {
+                is Result.Success -> updateUiWithAuth(loginResult.data)
+                is Result.Error -> showLoginFailed(loginResult.exception.localizedMessage)
             }
             setResult(Activity.RESULT_OK)
         })
@@ -102,19 +106,17 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateUiWithUser(model: LoggedInUserView) {
-        val welcome = getString(R.string.welcome)
-        val displayName = model.displayName
-        // TODO : initiate successful logged in experience
-        Toast.makeText(
-            applicationContext,
-            "$welcome $displayName",
-            Toast.LENGTH_LONG
-        ).show()
+    private fun updateUiWithAuth(model: OAuthToken) {
+        val intent = Intent(this, UserActivity::class.java)
+        startActivity(intent)
     }
 
     private fun showLoginFailed(@StringRes errorString: Int) {
-        Toast.makeText(applicationContext, errorString, Toast.LENGTH_SHORT).show()
+        showLoginFailed(getString(errorString))
+    }
+
+    private fun showLoginFailed(errorString: String?) {
+        Toast.makeText(applicationContext, errorString ?: "Unknown Error", Toast.LENGTH_SHORT).show()
     }
 }
 
