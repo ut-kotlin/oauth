@@ -22,6 +22,9 @@ class JWT() {
     internal var body: String? = null
     internal var claims = JSONObject()
 
+    /**
+     * Convenience constructor. Provide the claims and the secret key
+     */
     constructor(key: String, claims: JSONObject): this() {
         this.claims = claims
 
@@ -42,6 +45,9 @@ class JWT() {
         this.signature = encoder.encodeToString(JWT.sign(key, header, body))
     }
 
+    /**
+     * Parse constructor. Provide the header body and signature
+     */
     constructor(header: String, body: String, signature: String?): this() {
         this.header = header
         this.body = body
@@ -134,9 +140,10 @@ private fun JWT.Companion.sign(key: String, header: String, body: String): ByteA
 }
 
 fun JWT.verify(key: String): Boolean {
+    val rawHeader = this.header ?: return false
+    val body = this.body ?: return false
 
     val now = Instant.now()
-
     this.claim("nbf")?.let {
         val date = Instant.ofEpochSecond((it as Number).toLong())
         JWT.logger.debug("nbf now: ${now} expiration: ${date} delta: ${ (now.epochSecond - date.epochSecond) }")
@@ -153,17 +160,9 @@ fun JWT.verify(key: String): Boolean {
         }
     }
 
-    val rawHeader = this.header
-    if (rawHeader == null)  return false
-
-    val body = this.body
-    if (body == null) return false
-
     val bytes = Base64.getDecoder().decode(rawHeader)
-
-    val h = Gson().fromJson(String(bytes, Charsets.UTF_8), JWT.Header::class.java)
-    if (h == null) return false
-
+    val jbytes = String(bytes, Charsets.UTF_8)
+    val h = Gson().fromJson(jbytes, JWT.Header::class.java) ?: return false
     when (h.alg) {
         "HS256" -> {
             val actual = JWT.sign(key, rawHeader, body)
@@ -176,6 +175,7 @@ fun JWT.verify(key: String): Boolean {
 }
 
 fun JWT.Companion.parse(token: String): JWT {
+    // <header>.<body>.<sig>
     val tokens = token.split('.')
     if (tokens.size != 3)
         throw java.lang.RuntimeException("JWT is malformed")
