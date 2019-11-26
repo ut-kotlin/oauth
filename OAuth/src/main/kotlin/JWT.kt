@@ -1,13 +1,17 @@
 import com.google.gson.Gson
 import org.json.JSONObject
-import java.lang.RuntimeException
-import java.nio.charset.Charset
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import java.time.Instant
 import java.util.*
-import javax.crypto.spec.SecretKeySpec
 import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
 
 class JWT() {
+    companion object {
+        var logger: Logger = LoggerFactory.getLogger(JWT::class.java)
+    }
+
     data class Header (
         val alg: String,
         val typ: String
@@ -17,9 +21,6 @@ class JWT() {
     internal var header: String? = null
     internal var body: String? = null
     internal var claims = JSONObject()
-
-    companion object {
-    }
 
     constructor(key: String, claims: JSONObject): this() {
         this.claims = claims
@@ -138,6 +139,7 @@ fun JWT.verify(key: String): Boolean {
 
     this.claim("nbf")?.let {
         val date = Instant.ofEpochSecond((it as Number).toLong())
+        JWT.logger.debug("nbf now: ${now} expiration: ${date} delta: ${ (now.epochSecond - date.epochSecond) }")
         if (now.isBefore(date)) {
             return false
         }
@@ -145,6 +147,7 @@ fun JWT.verify(key: String): Boolean {
 
     this.claim("exp")?.let {
         val date = Instant.ofEpochSecond((it as Number).toLong())
+        JWT.logger.debug("exp now: ${now} expiration: ${date} delta: ${ (now.epochSecond - date.epochSecond) }")
         if (now.isAfter(date)) {
             return false
         }

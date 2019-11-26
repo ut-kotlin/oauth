@@ -20,6 +20,7 @@ dependencies {
     implementation 'org.slf4j:slf4j-api:1.7.21'
     compile "com.sparkjava:spark-kotlin:1.0.0-alpha"
     compile group: 'org.json', name: 'json', version: '20090211'
+    compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.29'
 }
 
 compileKotlin {

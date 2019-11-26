@@ -43,7 +43,7 @@ suspend fun Call.await(): Response {
 class LoginDataSource() {
     private val clientId = "41515389-7EBE-466B-B532-394B7E9998D4"
     private val clientSecret = "btENnDHAiXc8CgW54FXBtO3x9wnkEerepAl0vsim"
-    private val host = "10.0.5.42"
+    private val host = "10.0.2.2"
     private val port = 4567
     private val loginURL = URL("http://${host}:${port}/oauth/token")
     private val userURL = URL("http://${host}:${port}/user")
@@ -53,6 +53,23 @@ class LoginDataSource() {
 
     val isLoggedIn: Boolean
         get() = auth != null
+
+    private suspend fun authenticationIntercept(request: Request, response: Response): Request? {
+        val auth = this.auth
+        this.auth = null
+        if (auth == null) return null
+
+        val result = login(auth.refreshToken)
+        return when (result) {
+            is Result.Success -> {
+                val token = result.data
+                request.newBuilder()
+                    .header("Authorization", "${token.tokenType} ${token.accessToken}")
+                    .build()
+            }
+            is Result.Error -> null
+        }
+    }
 
     private suspend fun<T: Any> send(request: Request, type: Class<T>, reauth: Boolean = false): Result<T> {
         try {
@@ -68,23 +85,12 @@ class LoginDataSource() {
                 }
 
                 401 -> {
-                    val auth = this.auth
-                    if (reauth && auth != null) {
-                        this.auth = null
-                        val res = login(auth.refreshToken)
-
-                        return when (res) {
-                            is Result.Success -> {
-                                val auth = res.data
-                                val req = request.newBuilder()
-                                    .header("Authorization", "${auth.tokenType} ${auth.accessToken}")
-                                    .build()
-                                send(req, type)
-                            }
-                            is Result.Error -> res
-                        }
+                    val req = if (reauth) authenticationIntercept(request, response) else null
+                    if (req != null) {
+                        send(req, type)
+                    } else {
+                        Result.Error(RuntimeException("Unauthorized"))
                     }
-                    Result.Error(RuntimeException("Unauthorized"))
                 }
 
                 500 -> Result.Error(RuntimeException("Server Error"))

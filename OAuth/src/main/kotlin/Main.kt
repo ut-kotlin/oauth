@@ -1,5 +1,7 @@
 import com.google.gson.Gson
 import org.json.JSONObject
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import spark.Request
 import spark.Response
 import spark.Spark
@@ -7,6 +9,8 @@ import spark.Spark.*
 import java.util.*
 
 object Main {
+    var logger: Logger = LoggerFactory.getLogger(Main::class.java)
+
     private const val tokenTTL: Long = 15;
     private const val refreshTTL: Long = 3 * tokenTTL;
 
@@ -155,5 +159,9 @@ object Main {
     fun main(args: Array<String>): Unit {
         post("/oauth/token", this::postToken)
         get("/user", this::getUser)
+
+        Spark.after("*") { req, resp ->
+            logger.debug("request: ${ req.uri() } status: ${resp.status()}")
+        }
     }
 }
