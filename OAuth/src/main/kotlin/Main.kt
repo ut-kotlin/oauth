@@ -116,7 +116,7 @@ object Main {
             val jsn = Gson().toJson(user.profile)
             return jsn
         }
-        
+
         halt(400)
         return null
     }

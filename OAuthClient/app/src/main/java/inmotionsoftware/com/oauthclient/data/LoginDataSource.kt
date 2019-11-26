@@ -123,6 +123,16 @@ class LoginDataSource() {
             .build()
         )
 
+    suspend fun login(username: String, password: String): Result<OAuthToken> =
+        requestToken(FormBody.Builder()
+            .add("grant_type", "password")
+            .add("username", username)
+            .add("password", password)
+            .add("client_id", clientId)
+            .add("client_secret", clientSecret)
+            .build()
+        )
+
     suspend fun getUserProfile(): Result<UserProfile> {
         val auth = this.auth ?: return Result.Error(RuntimeException("Unauthorized"))
 
@@ -134,16 +144,6 @@ class LoginDataSource() {
 
         return send(request, UserProfile::class.java, true)
     }
-
-    suspend fun login(username: String, password: String): Result<OAuthToken> =
-        requestToken(FormBody.Builder()
-            .add("grant_type", "password")
-            .add("username", username)
-            .add("password", password)
-            .add("client_id", clientId)
-            .add("client_secret", clientSecret)
-            .build()
-        )
 
     fun logout() {
         this.auth = null
